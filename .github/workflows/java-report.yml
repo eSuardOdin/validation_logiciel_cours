@@ -1,0 +1,62 @@
+name: Java Report
+
+on:
+  push:
+    paths:
+      - '**/*.java'
+  pull_request:
+    paths:
+      - '**/*.java'
+
+jobs:
+  java-report:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Check for committed .class files
+        run: |
+          echo "Checking for committed .class files..."
+          CLASS_FILES=$(git ls-files '*.class')
+          if [ -n "$CLASS_FILES" ]; then
+            echo "Error: Found committed .class files:"
+            echo "$CLASS_FILES"
+            exit 1
+          fi
+
+      - name: Find all .java files
+        id: find_java
+        run: |
+          JAVA_FILES=$(find . -name '*.java')
+          if [ -z "$JAVA_FILES" ]; then
+            echo "Error: No .java files found in the repo."
+            exit 1
+          fi
+          echo "$JAVA_FILES" > java_files.txt
+          echo "Found $(echo "$JAVA_FILES" | wc -l) .java files."
+
+      - name: Generate java-file-report.txt
+        run: |
+          echo "Generating java-file-report.txt..."
+          TOTAL_LINES=0
+          FILE_COUNT=0
+          echo "Java File Report" > java-file-report.txt
+          echo "================" >> java-file-report.txt
+          while read FILE; do
+            LINES=$(wc -l < "$FILE" | tr -d ' ')
+            echo "$FILE – $LINES" >> java-file-report.txt
+            TOTAL_LINES=$((TOTAL_LINES + LINES))
+            FILE_COUNT=$((FILE_COUNT + 1))
+          done < java_files.txt
+          echo "" >> java-file-report.txt
+          echo "Total .java files: $FILE_COUNT" >> java-file-report.txt
+          echo "Total lines of code: $TOTAL_LINES" >> java-file-report.txt
+          cat java-file-report.txt
+
+      - name: Upload report
+        uses: actions/upload-artifact@v3
+        with:
+          name: java-file-report
+          path: java-file-report.txt
